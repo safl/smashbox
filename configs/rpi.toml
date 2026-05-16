@@ -1,0 +1,46 @@
+# smashbox kiosk image — Raspberry Pi 4 (arm64) variant
+#
+# Customises Raspberry Pi OS Lite arm64 into a flashable smashbox
+# kiosk SD-card image. Mounts the upstream image via losetup, chroots
+# into it via qemu-aarch64-static, applies the rootfs/ overlay, runs
+# apt install + user creation + service enables, then re-compresses.
+#
+# Build host requirements (Debian/Ubuntu package names):
+#   qemu-user-static binfmt-support sudo parted losetup gzip xz-utils
+#   curl openssl e2fsprogs
+#
+# Usage:
+#   make image
+# (or, directly: cijoe tasks/build.yaml --monitor -c configs/rpi.toml)
+
+[smashbox]
+# Password baked into the `pi` rescue user (SSH + sudo). Override for
+# production deploys. The `smashbox` kiosk user has no password.
+pi_password = "smashbox"
+
+# Wifi regulatory country. Without this, the radio is soft-blocked by
+# rfkill on first boot and wifi is invisible in nmtui until the
+# smashbox-wifi-unblock.service sets it.
+wifi_country = "DK"
+
+[cijoe.workflow]
+fail_fast = true
+
+[system-imaging.images.smashbox-rpi-arm64]
+# Pinned Pi OS Lite arm64 release. The rest of the pipeline (partition
+# layout, apt package names, plymouth theme) is tested against this
+# exact one — bump the URL deliberately, not casually.
+source.url = "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2024-11-19/2024-11-19-raspios-bookworm-arm64-lite.img.xz"
+source.path = "{{ local.env.HOME }}/system_imaging/cloud/2024-11-19-raspios-bookworm-arm64-lite.img.xz"
+
+# Raw image path during build.
+disk.raw_path = "{{ local.env.HOME }}/system_imaging/disk/smashbox-rpi-arm64.img"
+
+# Image grown to this size before customisation so X11 + pygame +
+# numpy + apt cache during install have room. The base Pi OS Lite
+# image is ~2.5 GiB; 5 GiB leaves comfortable headroom.
+disk.target_size_gib = 5
+
+# Final dd-able artefact.
+publish.gz_path = "{{ local.env.HOME }}/system_imaging/disk/smashbox-rpi-arm64.img.gz"
+publish.gzip_level = 9

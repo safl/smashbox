@@ -1,0 +1,16 @@
+---
+doc: |
+  Build the smashbox kiosk image (Raspberry Pi 4 / arm64)
+  ==========================================================
+
+  Customise Raspberry Pi OS Lite arm64 into a flashable smashbox
+  kiosk SD-card image. Single-step pipeline (no wheel staging — the
+  app is a single .py copied directly into /opt/smashbox/).
+
+  Output (on success):
+   - ``~/system_imaging/disk/smashbox-rpi-arm64.img.gz``
+   - ``~/system_imaging/disk/smashbox-rpi-arm64.img.gz.sha256``
+
+steps:
+- name: rpi_image_customize
+  uses: rpi_image_customize

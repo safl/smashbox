@@ -1,0 +1,25 @@
+# Appended to /boot/firmware/config.txt during image build. Tuned so the
+# same SD card behaves on a tiny HDMI screen and on a 4K TV.
+
+# Force HDMI on even if no display is detected at boot (some TVs are slow
+# to come up; some KVMs hide EDID until input is selected).
+hdmi_force_hotplug=1
+
+# Don't add a black border around the image on TVs that report overscan.
+disable_overscan=1
+
+# Allow 4K @ 60 Hz on Pi 4 (no-op on Pi 5 — already 4Kp60 capable).
+# Comment this out if running on a Pi where you'd rather save power.
+hdmi_enable_4kp60=1
+
+# Use the full-KMS driver (VC4 V4L2 KMS). Required for SDL2's kmsdrm
+# backend on Raspberry Pi OS Bookworm and later. This may already be set
+# by the stock config.txt; duplicates are harmless.
+dtoverlay=vc4-kms-v3d
+
+# Modest GPU split so the framebuffer has room at 4K. The vc4 driver
+# manages most allocation itself, but a small floor doesn't hurt.
+gpu_mem=128
+
+# Clean boot: skip the rainbow test card.
+disable_splash=1

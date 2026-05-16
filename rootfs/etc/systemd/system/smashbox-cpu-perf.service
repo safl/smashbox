@@ -1,0 +1,19 @@
+[Unit]
+# Pin cpufreq to `performance` so the Pi 4's first-press jitter
+# (ondemand governor needs ~10-50ms to ramp up after idle) doesn't
+# show as a one-frame-late letter on a toddler's key smash. Cheap on a
+# kiosk that's always under interactive load anyway.
+Description=Pin CPU governor to performance for smashbox kiosk
+DefaultDependencies=no
+After=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# `|| true` so missing cpufreq (e.g. running under qemu-aarch64-static
+# during the image build) doesn't fail the unit. On real hardware the
+# loop hits all 4 cores.
+ExecStart=/bin/sh -c 'for f in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do echo performance > "$f" 2>/dev/null || true; done'
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+[Unit]
+Description=Set wifi regulatory country and unblock rfkill
+After=systemd-modules-load.service
+Before=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/smashbox-wifi-unblock
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

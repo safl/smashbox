@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cijoe pipeline outputs
+cijoe-output/
+cijoe-archive/
+
+# Image build artifacts (local dev runs that wrote to ./build/
+# instead of ~/system_imaging/disk/)
+build/
+*.img
+*.img.gz
+*.img.gz.sha256
+
+# Logs
+*.log
