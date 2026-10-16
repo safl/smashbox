@@ -32,6 +32,10 @@ if command -v unclutter >/dev/null 2>&1; then
     unclutter -idle 0 -root >/dev/null 2>&1 &
 fi
 
+# The first boot's alsactl init leaves the jack at -20 dB and alsa-restore
+# keeps it there. Pin full level; the speaker's own knob sets loudness.
+amixer -q -c Headphones sset PCM 0dB || true
+
 export PYTHONUNBUFFERED=1
 python3 /opt/smashbox/smashbox.py
 rc=$?

@@ -20,7 +20,12 @@ The hardware in use is a Raspberry Pi 4 with a small HDMI monitor, a USB
 keyboard and a powered speaker, all tucked inside a wooden backgammon case and
 run from a 10000 mAh USB power bank. It is a portable computer, like a laptop,
 except that every part is left in view, so the case also shows what a computer
-is made of.
+is made of. Sound goes out the Pi's 3.5 mm jack to the speaker, which takes
+its power from one of the Pi's USB ports. The image switches HDMI audio off,
+because it never worked with the monitor, and blocks USB audio, because it was
+flaky, so the jack is the only sound output. The jack is held at -10 dB, which
+leaves the speaker's knob room to adjust and limits how loud a toddler can
+turn it.
 
 ## Running it on a desktop
 

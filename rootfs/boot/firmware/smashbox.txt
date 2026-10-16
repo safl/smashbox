@@ -1,5 +1,6 @@
 # Appended to /boot/firmware/config.txt during image build. Tuned so the
-# same SD card behaves on a tiny HDMI screen and on a 4K TV.
+# same SD card behaves on a tiny HDMI screen and on a 4K TV, with sound
+# from the 3.5 mm jack.
 
 # Force HDMI on even if no display is detected at boot (some TVs are slow
 # to come up; some KVMs hide EDID until input is selected).
@@ -13,9 +14,13 @@ disable_overscan=1
 hdmi_enable_4kp60=1
 
 # Use the full-KMS driver (VC4 V4L2 KMS). Required for SDL2's kmsdrm
-# backend on Raspberry Pi OS Bookworm and later. This may already be set
-# by the stock config.txt; duplicates are harmless.
-dtoverlay=vc4-kms-v3d
+# backend on Raspberry Pi OS Bookworm and later. noaudio drops HDMI
+# audio, which never worked with the kiosk's monitor; the jack stays on
+# through the stock config.txt's dtparam=audio=on. The build comments out
+# the stock vc4-kms-v3d line so this is the only one. A dtparam= after
+# this line would be read as a parameter of this overlay, not the board,
+# and the overlay's own audio parameter turns HDMI audio back on.
+dtoverlay=vc4-kms-v3d,noaudio
 
 # Modest GPU split so the framebuffer has room at 4K. The vc4 driver
 # manages most allocation itself, but a small floor doesn't hurt.

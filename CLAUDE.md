@@ -63,7 +63,7 @@ Uses `pygame._sdl2.video.Window` / `Renderer` / `Texture` rather than the classi
 
 ### Audio
 
-`pygame.mixer.pre_init` runs **before** `pygame.init()` (mandatory ordering). The app then enumerates devices with `pygame._sdl2.audio.get_audio_device_names`, picks the first USB-ish device (`USB_AUDIO_HINTS` substring match), and `mixer.quit()` + `mixer.init(devicename=...)` to bind to it. Falls back to default device if the named device fails to open or this pygame build doesn't accept `devicename`. After init, the actual mixer sample rate is queried back via `pygame.mixer.get_init()` and the module-level `SAMPLE_RATE` is mutated to match — synth functions read it lazily, so the sound bank is built at the device-native rate (typically 48 kHz on HDMI/USB). 16 mixer channels, 256-sample buffer.
+`pygame.mixer.pre_init` runs **before** `pygame.init()` (mandatory ordering). The app then enumerates devices with `pygame._sdl2.audio.get_audio_device_names`, picks the Pi's 3.5 mm jack (`JACK_HINTS` substring match), and `mixer.quit()` + `mixer.init(devicename=...)` to bind to it. Falls back to default device if the named device fails to open or this pygame build doesn't accept `devicename`. After init, the actual mixer sample rate is queried back via `pygame.mixer.get_init()` and the module-level `SAMPLE_RATE` is mutated to match — synth functions read it lazily, so the sound bank is built at whatever rate the device accepted (the jack takes the requested 44.1 kHz). 16 mixer channels, 256-sample buffer.
 
 ### Supervisor gate
 
@@ -87,7 +87,7 @@ Pipeline steps (all in `rpi_image_customize.py`):
 2. `truncate` to `target_size_gib`, `losetup --partscan`, `parted resizepart 2 100%`, `e2fsck -fy`, `resize2fs`.
 3. Mount root + `boot/firmware`; bind-mount `/proc /sys /dev /dev/pts`.
 4. `cp -a rootfs/.` over the mounted root; `install` `smashbox.py` from the repo root into `/opt/smashbox/`.
-5. Boot-partition: append HDMI tweaks fragment to `config.txt` with begin/end markers (idempotent); strip `systemd.run=…` from `cmdline.txt` and append quiet/plymouth flags; `touch ssh`; delete `userconf.txt` + `firstrun.sh`.
+5. Boot-partition: comment out the stock `dtoverlay=vc4-kms-v3d` line, append the HDMI/audio fragment to `config.txt` with begin/end markers (idempotent), and fail unless exactly one `vc4-kms-v3d` overlay remains; strip `systemd.run=…` from `cmdline.txt` and append quiet/plymouth flags; `touch ssh`; delete `userconf.txt` + `firstrun.sh`.
 6. Host-side `openssl passwd -6` to hash `pi_password` → handed to chroot via `/tmp/pi-creds`.
 7. Drop `qemu-aarch64-static` into the chroot. `chroot` and run the install script: `apt-get install` X + pygame stack + NetworkManager + plymouth, create `smashbox` + `pi` users, enable services, slim caches/docs/logs.
 8. Restore the original resolv.conf, remove qemu-static, zero free space (helps gzip), unmount everything, detach loop, `gzip -9`, write sha256 manifest.
@@ -99,6 +99,7 @@ Pipeline steps (all in `rpi_image_customize.py`):
 - `sshd` enabled out of the box; `pi` user password baked in from `[smashbox] pi_password`. We **do not** use `/boot/firmware/userconf.txt` because that triggers `userconfig.service`, which would also fight for tty1.
 - `.bash_profile` runs `startx` rather than `exec startx` so when the app exits it can `tail` `~/smashbox.log` and `Xorg.0.log` errors to tty1 before getty respawns — debuggability without ssh.
 - `smashbox-wifi-unblock.service` runs `iw reg set $COUNTRY` + `rfkill unblock all` at boot. Without this, the radio is soft-blocked on first boot and wifi is invisible in `nmtui`.
+- Audio goes out the 3.5 mm jack to a powered speaker, because USB audio was flaky and HDMI audio never worked with the kiosk's monitor. The stock `config.txt` enables the jack (`dtparam=audio=on`); `rootfs/boot/firmware/smashbox.txt` drops HDMI audio (`vc4-kms-v3d,noaudio`), and the build comments out the stock `vc4-kms-v3d` line so the overlay loads once. Never put a `dtparam=` below that overlay line in the fragment: it becomes an overlay parameter, and the overlay's `audio` parameter turns HDMI audio back on. `start.sh` pins the jack's `PCM` control to 0 dB before launching, since a fresh image settles at -20 dB. `rootfs/etc/modprobe.d/smashbox-no-usb-audio.conf` blocks `snd_usb_audio`, so the speaker, which takes its power over USB, never registers as a sound card.
 - `smashbox-cpu-perf.service` pins `cpufreq/scaling_governor` to `performance` so the ondemand-governor ramp-up doesn't show as a one-frame-late letter on a toddler's first press.
 
 If you touch tty1 ownership, plymouth, the cmdline, or `userconfig.service`/`firstrun.sh`, re-verify the single-owner-of-tty1 invariant — getting it wrong looks like a black screen on boot.

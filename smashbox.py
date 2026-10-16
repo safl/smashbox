@@ -1551,18 +1551,15 @@ class Smashbox:
     CORNER_HOLD_SECONDS = 2.0
     CORNER_SIZE = 80  # pixels from the top-left corner
 
-    # Substring matches we treat as "this is probably a USB speaker /
-    # headset / speakerphone" — preferred over the Pi's built-in audio.
-    USB_AUDIO_HINTS = (
-        "usb", "jabra", "speakerphone", "speak", "headset",
-        "anker", "logitech", "plantronics", "poly", "evolve",
-    )
+    # Substring matches for the Pi's 3.5 mm jack, which ALSA calls
+    # "bcm2835 Headphones".
+    JACK_HINTS = ("headphones",)
 
     @classmethod
     def _pick_audio_device(cls):
-        """Enumerate playback devices and prefer a USB/external one. Hide
-        the result behind an env override (SMASHBOX_AUDIO_DEVICE) for
-        debugging or to force a specific device by name."""
+        """Enumerate playback devices and pick the 3.5 mm jack.
+        SMASHBOX_AUDIO_DEVICE overrides the choice by name, for debugging
+        or to force a specific device."""
         forced = os.environ.get("SMASHBOX_AUDIO_DEVICE")
         if forced:
             return forced
@@ -1575,11 +1572,10 @@ class Smashbox:
         if not names:
             return None
         print(f"[init] audio devices: {names}", flush=True)
-        # Built-in Pi audio shows up as bcm2835 / vc4-hdmi / "Headphones".
-        # Skip those; pick the first match against USB_AUDIO_HINTS.
+        # None leaves SDL on its default device.
         for name in names:
             low = name.lower()
-            if any(h in low for h in cls.USB_AUDIO_HINTS):
+            if any(h in low for h in cls.JACK_HINTS):
                 return name
         return None
 
@@ -1828,8 +1824,8 @@ class Smashbox:
             self.audio_ok = True
             # Sync the synth rate to whatever the mixer actually negotiated.
             # pygame.mixer.init's default allowedchanges permits frequency
-            # change, so on HDMI/USB the device-native rate (usually 48kHz)
-            # wins over our 44.1kHz request. If we kept synthesizing at
+            # change, so a device that does not take 44.1kHz gets its
+            # native rate instead of our request. If we kept synthesizing at
             # 44.1kHz the mixer would either resample (CPU + softness) or
             # play the buffer faster than intended. Querying back and
             # rebuilding sounds at the actual rate avoids both.

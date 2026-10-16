@@ -20,8 +20,8 @@ Mirrors what ``image/build.sh`` used to do, just driven from cijoe:
 6. Drop ``smashbox.py`` from the repo root into
    ``/opt/smashbox/smashbox.py``.
 7. Boot-partition housekeeping (idempotent):
-     * append the HDMI tweaks fragment to ``config.txt`` with
-       begin/end markers.
+     * comment out the stock ``vc4-kms-v3d`` overlay and append the HDMI
+       and audio fragment to ``config.txt`` with begin/end markers.
      * strip any ``systemd.run=…`` from ``cmdline.txt`` (the rpi-os
        first-boot wizard tail) so tty1 stays under our autologin
        getty.
@@ -306,9 +306,14 @@ def _stage_and_chroot(
     else:
         log.info(f"No {assets_sounds}; shipping without sample overrides")
 
-    # /boot/firmware/config.txt: append HDMI tweaks with begin/end
-    # markers (idempotent).
+    # /boot/firmware/config.txt: append HDMI and audio tweaks with
+    # begin/end markers (idempotent). The stock vc4-kms-v3d line is
+    # commented out first, because the fragment loads the overlay with
+    # noaudio and it should be loaded once.
     boot_fw = mnt / "boot" / "firmware"
+    if _run_sudo(["sed", "-i", "s/^dtoverlay=vc4-kms-v3d$/#&/",
+                  str(boot_fw / "config.txt")]) != 0:
+        return errno.EIO
     rc = _append_with_markers(
         target=boot_fw / "config.txt",
         fragment_src=rootfs_dir / "boot" / "firmware" / "smashbox.txt",
@@ -317,6 +322,15 @@ def _stage_and_chroot(
     )
     if rc != 0:
         return rc
+    # If the stock line ever changes form the sed misses it and the
+    # overlay loads twice, once with HDMI audio. Fail the build instead.
+    kms = subprocess.run(
+        ["sudo", "grep", "-c", "^dtoverlay=vc4-kms-v3d", str(boot_fw / "config.txt")],
+        capture_output=True, text=True,
+    )
+    if kms.stdout.strip() != "1":
+        log.error(f"config.txt: expected one vc4-kms-v3d overlay, found {kms.stdout.strip()}")
+        return errno.EIO
 
     # Version markers. SMASHBOX-VERSION.txt on the boot partition is
     # readable from any host (mount the SD on a laptop and you can
