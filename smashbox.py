@@ -1597,6 +1597,7 @@ class Smashbox:
     #   tromme (drums)                                              → K_t
     #   ugle (owl)                                                  → K_u
     #   violin                                                      → K_v
+    #   xylofon                                                     → K_x
     #
     # Items within a cycle are alphabetical by English name so the
     # rotation order is deterministic and easy to scan/edit.
