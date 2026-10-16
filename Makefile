@@ -5,13 +5,17 @@ APP      ?= smashbox.py
 VARIANT  ?= rpi
 IMAGE_DIR ?= $(HOME)/system_imaging/disk
 IMAGE     := smashbox-$(VARIANT)-arm64
+# Single source of truth for the version is __version__ in smashbox.py;
+# extracted here for the help text and post-build banner so make output
+# can't drift from what the app reports.
+VERSION   := $(shell awk -F'"' '/^__version__/ {print $$2; exit}' $(APP) 2>/dev/null)
 
 .DEFAULT_GOAL := help
 
 .PHONY: help venv run run-fullscreen media-deps image clean clean-image distclean
 
 help:
-	@echo "Smashbox — a toddler keyboard smash toy"
+	@echo "Smashbox v$(VERSION) — a toddler keyboard smash toy"
 	@echo
 	@echo "Dev:"
 	@echo "  make venv             Create $(VENV) and install pygame + numpy"
@@ -51,7 +55,7 @@ image:
 	cijoe tasks/build.yaml --monitor -c configs/$(VARIANT).toml
 	@echo
 	@echo "=================================================================="
-	@echo " Image ready to flash"
+	@echo " Image ready to flash  ·  smashbox v$(VERSION)"
 	@echo "=================================================================="
 	@if [ -f "$(IMAGE_DIR)/$(IMAGE).img.gz" ]; then \
 	    echo "  $(IMAGE_DIR)/$(IMAGE).img.gz"; \

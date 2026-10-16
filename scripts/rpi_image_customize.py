@@ -46,6 +46,7 @@ import contextlib
 import errno
 import hashlib
 import logging as log
+import re
 import shutil
 import subprocess
 import textwrap
@@ -121,6 +122,9 @@ def main(args, cijoe):
         log.error(f"Missing smashbox.py at {app_path}")
         return errno.ENOENT
 
+    app_version = _extract_app_version(app_path)
+    log.info(f"Building smashbox v{app_version}")
+
     source_url = image["source"]["url"]
     source_path = Path(image["source"]["path"])
     raw_path = Path(image["disk"]["raw_path"])
@@ -154,7 +158,7 @@ def main(args, cijoe):
 
     # 3-9. Loop-mount, customise, tear down.
     rc = _customize(raw_path, rootfs_dir, app_path, assets_sounds,
-                    pi_password, wifi_country)
+                    pi_password, wifi_country, app_version)
     if rc != 0:
         return rc
 
@@ -177,7 +181,7 @@ def main(args, cijoe):
     gz_size_mb = gz_path.stat().st_size / (1024 * 1024)
     log.info("")
     log.info("=" * 66)
-    log.info(" Image ready to flash")
+    log.info(f" Image ready to flash  ·  smashbox v{app_version}")
     log.info("=" * 66)
     log.info(f"  raw:        {raw_path}")
     log.info(f"  gz:         {gz_path}  ({gz_size_mb:.0f} MiB)")
@@ -198,6 +202,7 @@ def _customize(
     assets_sounds: Path,
     pi_password: str,
     wifi_country: str,
+    app_version: str,
 ) -> int:
     """Loop-mount, resize rootfs, run chroot customisation, tear down."""
     rc, loop = _losetup_attach(raw_path)
@@ -234,7 +239,7 @@ def _customize(
         try:
             rc = _stage_and_chroot(
                 mnt, rootfs_dir, app_path, assets_sounds,
-                pi_password, wifi_country,
+                pi_password, wifi_country, app_version,
             )
         finally:
             _run_sudo(["umount", str(boot_mnt)])
@@ -253,6 +258,7 @@ def _stage_and_chroot(
     assets_sounds: Path,
     pi_password: str,
     wifi_country: str,
+    app_version: str,
 ) -> int:
     """Drop overlay + app into the mounted rootfs and run chroot install."""
 
@@ -304,6 +310,18 @@ def _stage_and_chroot(
         begin="# smashbox begin",
         end="# smashbox end",
     )
+    if rc != 0:
+        return rc
+
+    # Version markers. SMASHBOX-VERSION.txt on the boot partition is
+    # readable from any host (mount the SD on a laptop and you can
+    # tell which version is on it without booting). /opt/smashbox/VERSION
+    # is the same value reachable from inside the running system.
+    version_blob = f"smashbox {app_version}\n"
+    rc = _write_sudo(boot_fw / "SMASHBOX-VERSION.txt", version_blob)
+    if rc != 0:
+        return rc
+    rc = _write_sudo(mnt / "opt/smashbox/VERSION", version_blob)
     if rc != 0:
         return rc
 
@@ -583,6 +601,21 @@ def _run_shell(cmdline: str) -> int:
 def _run_sudo(cmd: list[str]) -> int:
     log.debug("sudo " + " ".join(str(c) for c in cmd))
     return subprocess.call(["sudo", *cmd])
+
+
+_VERSION_RE = re.compile(r'^__version__\s*=\s*"([^"]+)"', re.MULTILINE)
+
+
+def _extract_app_version(app_path: Path) -> str:
+    """Return the ``__version__`` string from smashbox.py without
+    importing it (the script runs on the build host, which has no
+    pygame). Falls back to ``"unknown"`` so a bad bump doesn't break
+    the build — the value is informational only."""
+    try:
+        m = _VERSION_RE.search(app_path.read_text(encoding="utf-8"))
+    except OSError:
+        return "unknown"
+    return m.group(1) if m else "unknown"
 
 
 def _write_sudo(path: Path, content: str, mode: str = "0644") -> int:

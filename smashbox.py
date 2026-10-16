@@ -15,10 +15,25 @@ Inside the supervisor panel:
 
 from __future__ import annotations
 
+# Bumped manually before tagging a release. The GitHub Actions
+# release workflow also sed-overrides this line with the pushed tag
+# at build time, so tagged images always report the tag — but for
+# `pip install`-ish use the literal here is the source of truth.
+__version__ = "0.1.0"
+
+import sys
+
+# `--version` is the only CLI arg we handle without pygame — answered
+# here, before the SDL imports below, so ops scripts (and a quick
+# `smashbox.py --version` over ssh from the kiosk) work even when
+# pygame isn't installed in the active interpreter.
+if any(a in ("--version", "-V") for a in sys.argv[1:]):
+    print(f"smashbox {__version__}")
+    sys.exit(0)
+
 import math
 import os
 import random
-import sys
 import time
 
 # Prefer the KMS/DRM video driver when no display server is present (the
@@ -1773,6 +1788,7 @@ class Smashbox:
             self.size = phys
             scaled_used = False
 
+        print(f"[init] smashbox v{__version__}", flush=True)
         print(f"[init] pygame {pygame.version.ver}, "
               f"SDL {'.'.join(map(str, pygame.get_sdl_version()))}, "
               f"driver={pygame.display.get_driver()}", flush=True)
@@ -1783,7 +1799,7 @@ class Smashbox:
         # GPU pipeline: Window + Renderer. Surfaces become Textures and
         # draws happen on the GPU rather than as CPU alpha blits.
         self.window = Window(
-            "Smashbox",
+            f"Smashbox v{__version__}",
             size=phys,
             fullscreen_desktop=want_fullscreen,
         )
@@ -2451,9 +2467,16 @@ class Smashbox:
 
     def _pick_target(self):
         if self.game_state == "counting":
-            # Fixed sequence 1..9 (Danish convention: no zero).
-            digit = str(self._count_pos)
-            self.target = ("digit", digit, pygame.K_0 + self._count_pos)
+            # Fixed sequence 1..9 (Danish convention: no zero in the
+            # count). Once the row is complete (_count_pos == 10), the
+            # target becomes "0" — the dedicated reset key. 0 is not
+            # part of the count sequence, so pressing it earlier in
+            # the row gets the same nope as any other wrong key.
+            if self._count_pos > 9:
+                self.target = ("digit", "0", pygame.K_0)
+            else:
+                digit = str(self._count_pos)
+                self.target = ("digit", digit, pygame.K_0 + self._count_pos)
         else:
             # "whack-a-mole" pool = A–Z and 0–9 only. Clipart targets for
             # special keys were removed so the toddler always has a
@@ -2513,16 +2536,24 @@ class Smashbox:
         self.game_hits += 1
 
         if self.game_state == "counting":
+            if self._count_pos > 9:
+                # The press that brought us here was on "0" — the reset
+                # key shown after a completed row. Start over from 1.
+                self._count_pos = 1
+                self._pick_target()
+                self._target_celebrate_until = now + 0.40
+                self._target_next_at = now + 0.40
+                return
             self._count_pos += 1
             if self._count_pos > 9:
-                # Row complete. Trigger the big fanfare and bail out
-                # before the eager next-target pick below — _count_pos
-                # stays at 10 as the "all green, celebrating" sentinel
-                # until _tick_target resets it after the long window.
+                # Row complete on 9. Big fanfare; _pick_target() with
+                # count_pos == 10 sets target = "0" so once the
+                # celebration window ends the toddler sees "0" as the
+                # next thing to hit (instead of an auto-reset).
                 self._trigger_count_fanfare(now)
-                self.target = None
-                self._target_celebrate_until = now + 3.0
-                self._target_next_at = now + 3.0
+                self._pick_target()
+                self._target_celebrate_until = now + self.COUNT_FANFARE_SECS
+                self._target_next_at = now + self.COUNT_FANFARE_SECS
                 return
         # Pick the next target NOW (not lazily on the next draw frame).
         # Otherwise: between _target_next_at elapsing and the next
@@ -2535,33 +2566,62 @@ class Smashbox:
         self._target_celebrate_until = now + 0.40
         self._target_next_at = now + 0.40
 
+    # Total length of the wrap-celebration window (seconds). Used by
+    # both the fanfare scheduler and the post-9 input gate so they
+    # stay in lockstep.
+    COUNT_FANFARE_SECS = 4.0
+
     def _trigger_count_fanfare(self, now: float):
-        """Queue the big 1..9-complete celebration: ~12 bursts and 6
-        ascending piano notes spread across a ~2.5 s window. Drained
-        by _tick_target each frame so the fanfare unfolds in time
-        rather than collapsing into a single chaotic instant."""
+        """Queue the row-complete celebration: an initial radial salvo
+        around the centre, ~24 scattered bursts spread across the full
+        COUNT_FANFARE_SECS window, a layered chime+boom+pop opening
+        chord, and a full ascending-then-descending piano run.
+        Drained by _tick_target each frame so the fanfare unfolds in
+        time rather than detonating all at once."""
         w, h = self.size
         self._count_fanfare_bursts.clear()
         self._count_fanfare_sounds.clear()
-        # 12 bursts spread evenly 0..2.4s at random positions.
-        for i in range(12):
-            t = now + (i / 11) * 2.4
-            bx = random.uniform(w * 0.10, w * 0.90)
-            by = random.uniform(h * 0.20, h * 0.75)
+        cx, cy = w / 2.0, h / 2.0
+
+        # 8 bursts in a ring around the centre at t=0 — instant "you
+        # did it!" punctuation before the scattered confetti starts.
+        ring_r = min(w, h) * 0.20
+        for i in range(8):
+            ang = (i / 8) * math.tau
+            self._count_fanfare_bursts.append((
+                now,
+                cx + math.cos(ang) * ring_r,
+                cy + math.sin(ang) * ring_r,
+            ))
+        # 24 scattered random bursts spread across the full window.
+        for i in range(24):
+            t = now + (i / 23) * self.COUNT_FANFARE_SECS
+            bx = random.uniform(w * 0.08, w * 0.92)
+            by = random.uniform(h * 0.15, h * 0.80)
             self._count_fanfare_bursts.append((t, bx, by))
-        # Loud first chime now; further chimes layered at 0.8 s and
-        # 1.6 s give the audio its own arc.
+
+        # Opening chord — chime + boom + pop layered now.
         self._play(self.snd_special.get("chime"))
+        boom = self.snd_special.get("boom")
+        pop = self.snd_special.get("pop")
+        if boom is not None:
+            self._count_fanfare_sounds.append((now + 0.02, boom))
+        if pop is not None:
+            self._count_fanfare_sounds.append((now + 0.18, pop))
+        # Chime layers along the arc of the celebration.
         chime = self.snd_special.get("chime")
         if chime is not None:
-            self._count_fanfare_sounds.append((now + 0.80, chime))
-            self._count_fanfare_sounds.append((now + 1.60, chime))
-        # Walk up the pentatonic scale for the rising-cheer effect.
+            for t_off in (0.90, 1.80, 2.70, 3.50):
+                self._count_fanfare_sounds.append((now + t_off, chime))
+        # Pentatonic up then back down for the rising-then-settling
+        # cheer. 13 notes across ~3.6 s.
         if self.snd_piano:
-            for i, t_off in enumerate(
-                    (0.10, 0.45, 0.80, 1.15, 1.50, 1.85, 2.20)):
-                snd = self.snd_piano[i % len(self.snd_piano)]
-                self._count_fanfare_sounds.append((now + t_off, snd))
+            n = len(self.snd_piano)
+            seq = list(range(n)) + list(range(n - 2, -1, -1))
+            for i, idx in enumerate(seq):
+                t_off = 0.10 + i * (3.6 / max(1, len(seq) - 1))
+                self._count_fanfare_sounds.append(
+                    (now + t_off, self.snd_piano[idx]))
 
     def _trigger_nope(self):
         """Gentle 'no' feedback for wrong inputs in game modes — a short
@@ -2695,10 +2755,11 @@ class Smashbox:
 
     def _tick_target(self):
         # Per-frame game-mode hook. Normal post-hit transitions pick
-        # eagerly in _handle_game_keypress; this method only handles
-        # the counting-wrap big-celebration tail: it drains the
-        # scheduled bursts and sounds, then resets the row and picks
-        # the next target once the long window elapses.
+        # eagerly in _handle_game_keypress; this method only drains
+        # the scheduled fanfare bursts and sounds during the
+        # row-complete window. There's no auto-reset — once the
+        # fanfare ends, target stays at "0" and the toddler resets the
+        # row by pressing 0 (handled in _handle_game_keypress).
         if self.game_state != "counting" or self._count_pos <= 9:
             return
         now = time.monotonic()
@@ -2710,9 +2771,6 @@ class Smashbox:
                and now >= self._count_fanfare_sounds[0][0]):
             _, snd = self._count_fanfare_sounds.pop(0)
             self._play(snd)
-        if now >= self._target_next_at:
-            self._count_pos = 1
-            self._pick_target()
 
     def _ensure_target_text(self, text: str):
         """Render text-based targets (letters / digits) lazily into a
@@ -2913,7 +2971,7 @@ class Smashbox:
             shown = min(self._count_pos, 9)
             game_line = f"Mode:    counting ({shown}/9)   [g]"
         lines = (
-            "Supervisor panel",
+            f"Supervisor panel   ·   v{__version__}",
             "",
             f"Theme:   {THEME_ORDER[self.theme_idx]}   [t]",
             f"Sound:   {'muted' if self.muted else 'on'}   [m]",
@@ -2951,6 +3009,8 @@ class Smashbox:
 def main():
     import time
     import traceback
+    # `--version` is handled at import time (above the pygame imports)
+    # so it works without a working SDL stack.
     try:
         Smashbox().run()
         return 0
