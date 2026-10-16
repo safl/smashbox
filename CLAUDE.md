@@ -15,6 +15,8 @@ A fullscreen pygame "keyboard smash" toy for toddlers, plus a [cijoe](https://gi
 - `smashbox.py` — the pygame app (single file, ~3000 lines).
 - `tasks/` + `configs/` + `scripts/` + `rootfs/` — cijoe workflow that turns upstream RPi OS Lite arm64 into a kiosk image.
 
+The hardware is a Pi 4, a small HDMI monitor, a USB keyboard and a USB-powered speaker, built into a wooden backgammon case and run from a 10000 mAh USB power bank, with every part left in view. It is carried around like a laptop, not plugged into a TV.
+
 ## Commands
 
 ```

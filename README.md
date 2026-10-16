@@ -12,7 +12,15 @@ first letter, so K is kat, ko and klaver, and F is fugl, fløjte, frø and får.
 Two simple games, whack-a-mole and counting 1 to 9, sit alongside free play.
 
 The repository also builds a Raspberry Pi OS image that boots straight into
-the app, so a Pi 4 with a keyboard and a screen becomes a dedicated toy.
+the app, so the Pi becomes a dedicated toy rather than a computer. Nothing is
+set up by hand on the device: the image is flashed and booted, and a parent
+reaches the settings or the exit through a hidden supervisor panel.
+
+The hardware in use is a Raspberry Pi 4 with a small HDMI monitor, a USB
+keyboard and a powered speaker, all tucked inside a wooden backgammon case and
+run from a 10000 mAh USB power bank. It is a portable computer, like a laptop,
+except that every part is left in view, so the case also shows what a computer
+is made of.
 
 ## Running it on a desktop
 
