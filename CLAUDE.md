@@ -33,9 +33,9 @@ Image build knobs (in `configs/rpi.toml`): `[smashbox] pi_password`, `[smashbox]
 Single file, one class `Smashbox` that owns everything. Section banners (`# Themes`, `# Clip-art`, `# Audio`, `# Particles and floating letters`, `# Main app`) carve it into:
 
 - **Themes** (`THEMES`, `THEME_ORDER`) — pure data: bg gradient, palette, sprite shape, ambient style.
-- **Clip-art** (`_clip_*`) — sprites drawn from pygame primitives at any size. Intentional: no asset files, scales to 4K, no font/emoji dependency.
-- **Sound synth** (`_make_piano`, `_make_swoosh`, `_make_bird`, ...) — every fallback sound is generated from numpy arrays at startup via `_to_sound` (1.5 ms fade-in, 10 ms fade-out to mask truncated synth tails). Recorded samples in `assets/sounds/{animals,instruments,counts}/<basename>.{ogg,wav}` override the synth fallbacks at load time (see `_load_samples_by_basename`).
-- **Key cycles** (`_KEY_CYCLES_TABLE`) — animal/instrument keys are bound by their **Danish first letter** (F → fugl/fløjte/frø/får, G → guitar/gris, K → kat/ko/klaver, etc.). Keys with multiple items round-robin through them on each press. `_play_for_keydown` advances the per-key counter and returns the matching `clip_idx` so `burst` shows the paired sprite.
+- **Clip-art** (`_clip_*`, registered in `CLIPART_BUILDERS` with matching `CLIP_*` indices) — sprites drawn from pygame primitives at any size. Intentional: no asset files, scales to 4K, no font/emoji dependency.
+- **Sound synth** (`_make_piano`, `_make_swoosh`, `_make_bird`, ...) — every fallback sound is generated from numpy arrays at startup via `_to_sound` (1.5 ms fade-in, 10 ms fade-out to mask truncated synth tails). Recorded samples in `assets/sounds/{animals,instruments,counts}/<basename>.{ogg,wav}` override the synth fallbacks at load time (see `_load_samples_by_basename`); the fallbacks live in `_make_keyed_fallbacks`. `counts/` holds optional spoken Danish digits and is not in the repo. Every recorded sample needs an entry in `assets/sounds/ATTRIBUTIONS.md`.
+- **Key cycles** (`_KEY_CYCLES_TABLE`) — animal/instrument keys are bound by their **Danish first letter** (F → fugl/fløjte/frø/får, G → guitar/gris, K → kat/ko/klaver, X → two xylofon samples, etc.). Keys with multiple items round-robin through them on each press. `_play_for_keydown` advances the per-key counter and returns the matching `clip_idx` so `burst` shows the paired sprite.
 - **Rendering primitives** — `Particle`, `FloatingSprite`.
 - **`Smashbox`** (~1500 lines) — init, main loop, input, three game modes.
 

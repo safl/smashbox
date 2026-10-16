@@ -934,6 +934,39 @@ def _clip_percussion(size):
     return s
 
 
+def _clip_xylophone(size):
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    cx, cy = size / 2, size / 2
+    rail = (120, 75, 35)
+    # Two rails converging to the right, as the bars get shorter.
+    for y0, y1 in ((-0.20, -0.10), (0.20, 0.10)):
+        pygame.draw.line(s, rail,
+                         (cx - size * 0.42, cy + size * y0),
+                         (cx + size * 0.42, cy + size * y1),
+                         max(3, size // 30))
+    # Rainbow bars, longest (lowest note) on the left.
+    colors = ((230, 60, 60), (245, 150, 40), (245, 215, 50),
+              (80, 190, 80), (60, 150, 230), (140, 90, 210))
+    bar_w = size * 0.10
+    for i, color in enumerate(colors):
+        x = cx - size * 0.38 + i * size * 0.13
+        half = size * (0.30 - i * 0.025)
+        rect = pygame.Rect(int(x), int(cy - half), int(bar_w), int(2 * half))
+        pygame.draw.rect(s, color, rect, border_radius=max(2, size // 40))
+        pygame.draw.circle(s, (240, 240, 240),
+                           (int(x + bar_w / 2), int(cy - half * 0.7)),
+                           max(1, int(size * 0.012)))
+    # Mallet resting across the top-right bars.
+    pygame.draw.line(s, (200, 160, 100),
+                     (cx + size * 0.05, cy - size * 0.42),
+                     (cx + size * 0.40, cy - size * 0.18),
+                     max(2, size // 50))
+    pygame.draw.circle(s, (230, 60, 60),
+                       (int(cx + size * 0.05), int(cy - size * 0.42)),
+                       max(3, int(size * 0.05)))
+    return s
+
+
 CLIPART_BUILDERS = [
     _clip_sun, _clip_heart, _clip_star, _clip_cloud, _clip_flower,
     _clip_lightning, _clip_balloon, _clip_snowflake, _clip_music_note,
@@ -941,7 +974,7 @@ CLIPART_BUILDERS = [
     _clip_dog, _clip_cat, _clip_cow, _clip_owl, _clip_bird, _clip_frog,
     _clip_sheep, _clip_pig,
     _clip_guitar, _clip_piano, _clip_saxophone, _clip_flute,
-    _clip_violin, _clip_drums, _clip_percussion,
+    _clip_violin, _clip_drums, _clip_percussion, _clip_xylophone,
 ]
 # Named indices so the keyed-clip tables read as something other than
 # a sea of magic numbers. Indices match the order in CLIPART_BUILDERS.
@@ -972,6 +1005,7 @@ CLIP_FLUTE = 23
 CLIP_VIOLIN = 24
 CLIP_DRUMS = 25
 CLIP_PERCUSSION = 26
+CLIP_XYLOPHONE = 27
 
 
 # ---------------------------------------------------------------------------
@@ -1326,6 +1360,41 @@ def _make_perc(duration=0.18):
     return _to_sound(high * env * 0.250)
 
 
+def _make_xylophone(freq, duration=0.40):
+    """Struck wooden bar: fundamental plus the bar's inharmonic
+    ~3.9x partial, which decays much faster than the body."""
+    n = int(SAMPLE_RATE * duration)
+    t = np.linspace(0.0, duration, n, endpoint=False)
+    wave = (np.sin(2 * np.pi * freq * t) * np.exp(-9 * t)
+            + 0.4 * np.sin(2 * np.pi * freq * 3.93 * t) * np.exp(-30 * t))
+    wave /= max(np.max(np.abs(wave)), 1e-6)
+    return _to_sound(wave * 0.220)
+
+
+def _make_keyed_fallbacks():
+    """Synth stand-ins for the recorded samples, keyed by the basenames
+    used in Smashbox._KEY_CYCLES_TABLE."""
+    return {
+        "bird":  _make_bird(),
+        "cat":   _make_cat(),
+        "cow":   _make_cow(),
+        "dog":   _make_dog(),
+        "frog":  _make_frog(),
+        "owl":   _make_owl(),
+        "pig":   _make_pig(),
+        "sheep": _make_sheep(),
+        "guitar":     _make_guitar(),
+        "piano":      _make_piano_hit(),
+        "saxophone":  _make_sax(),
+        "flute":      _make_flute(),
+        "violin":     _make_violin(),
+        "drums":      _make_drum(),
+        "percussion": _make_perc(),
+        "xylophone-1": _make_xylophone(DIATONIC[7]),
+        "xylophone-2": _make_xylophone(DIATONIC[9]),
+    }
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -1560,6 +1629,10 @@ class Smashbox:
         ],
         "K_v": [
             ("instruments", "violin", CLIP_VIOLIN),
+        ],
+        "K_x": [
+            ("instruments", "xylophone-1", CLIP_XYLOPHONE),  # xylofon
+            ("instruments", "xylophone-2", CLIP_XYLOPHONE),
         ],
     }
 
@@ -1983,26 +2056,8 @@ class Smashbox:
                 "swoosh_h": _make_swoosh(450, 800, 0.18),
                 "slide":    _make_swoosh(300, 1500, 0.30),
             }
-            # Synth fallbacks, keyed by basename (matches the names in
-            # _KEY_CYCLES_TABLE so the lookup is one step). On-disk
-            # samples override these on a per-basename basis below.
-            sounds_by_base = {
-                "bird":  _make_bird(),
-                "cat":   _make_cat(),
-                "cow":   _make_cow(),
-                "dog":   _make_dog(),
-                "frog":  _make_frog(),
-                "owl":   _make_owl(),
-                "pig":   _make_pig(),
-                "sheep": _make_sheep(),
-                "guitar":     _make_guitar(),
-                "piano":      _make_piano_hit(),
-                "saxophone":  _make_sax(),
-                "flute":      _make_flute(),
-                "violin":     _make_violin(),
-                "drums":      _make_drum(),
-                "percussion": _make_perc(),
-            }
+            # On-disk samples override these on a per-basename basis below.
+            sounds_by_base = _make_keyed_fallbacks()
             # Sample overrides: if the kiosk image (or dev checkout)
             # ships real recordings under sounds/{animals,instruments}/
             # <name>.{ogg,wav}, replace the synthesised version with the
