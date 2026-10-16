@@ -19,7 +19,9 @@ on:
 
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest
+    # Pinned: Ubuntu 26.04 has no qemu-user-static package, which the
+    # dependency step below installs.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: write  # needed by softprops/action-gh-release
@@ -30,7 +32,7 @@ jobs:
 
       - name: Free up disk space
         # The build needs ~6 GB free (5 GB raw image + ~700 MB gz +
-        # downloaded RPi OS Lite source). The ubuntu-latest runner
+        # downloaded RPi OS Lite source). The ubuntu-24.04 runner
         # has ~14 GB free out of the box once a few preinstalled
         # SDKs are stripped — these two prunes are the cheapest big
         # wins.
