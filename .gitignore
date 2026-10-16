@@ -29,9 +29,7 @@ Thumbs.db
 cijoe-output/
 cijoe-archive/
 
-# Image build artifacts (local dev runs that wrote to ./build/
-# instead of ~/system_imaging/disk/)
-build/
+# Image build artifacts
 *.img
 *.img.gz
 *.img.gz.sha256

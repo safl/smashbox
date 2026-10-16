@@ -75,7 +75,8 @@ image:
 	@echo "=================================================================="
 
 clean:
-	rm -rf $(VENV) __pycache__
+	rm -rf $(VENV)
+	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
 clean-image:
 	rm -rf cijoe-output cijoe-archive

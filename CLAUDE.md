@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A fullscreen pygame "keyboard smash" toy for toddlers, plus a [cijoe](https://github.com/safl/cijoe) pipeline that bakes it into a flashable Raspberry Pi OS image that boots straight into the app. Two artifacts, one repo:
 
-- `smashbox.py` — the pygame app (single file, ~1700 lines).
+- `smashbox.py` — the pygame app (single file, ~3000 lines).
 - `tasks/` + `configs/` + `scripts/` + `rootfs/` — cijoe workflow that turns upstream RPi OS Lite arm64 into a kiosk image.
 
 ## Commands
@@ -24,20 +24,20 @@ make clean / clean-image / distclean
 
 There is no test suite, linter, or formatter wired up. The app is exercised by running it.
 
-Runtime env vars the app honors: `SMASHBOX_WINDOWED`, `SMASHBOX_LOGICAL_HEIGHT` (defaults to 1080 — caps render res and GPU-scales above that), `SMASHBOX_AUDIO_DEVICE` (force a device name), `SMASHBOX_AUDIO_BUFFER` (default 256 samples). When no `DISPLAY`/`WAYLAND_DISPLAY` is present the app sets `SDL_VIDEODRIVER=kmsdrm`. On a Pi (detected via `/proc/device-tree/model`) it also sets `SDL_AUDIODRIVER=alsa` so SDL skips the pulse/pipewire probes.
+Runtime env vars the app honors: `SMASHBOX_WINDOWED`, `SMASHBOX_LOGICAL_HEIGHT` (defaults to 1080 — caps render res and GPU-scales above that), `SMASHBOX_AUDIO_DEVICE` (force a device name), `SMASHBOX_AUDIO_BUFFER` (default 256 samples), `SMASHBOX_SOUNDS_DIR` (sample root override). When no `DISPLAY`/`WAYLAND_DISPLAY` is present the app sets `SDL_VIDEODRIVER=kmsdrm`. On a Pi (detected via `/proc/device-tree/model`) it also sets `SDL_AUDIODRIVER=alsa` so SDL skips the pulse/pipewire probes.
 
 Image build knobs (in `configs/rpi.toml`): `[smashbox] pi_password`, `[smashbox] wifi_country`, `[system-imaging.images.smashbox-rpi-arm64]` block (URL, paths, target size, gzip level).
 
 ## App architecture (`smashbox.py`)
 
-Single file, one class `Smashbox` that owns everything. Section banners (`# --- Themes ---`, `# --- Clip-art ---`, `# --- Sound synthesis ---`, etc.) carve it into:
+Single file, one class `Smashbox` that owns everything. Section banners (`# Themes`, `# Clip-art`, `# Audio`, `# Particles and floating letters`, `# Main app`) carve it into:
 
 - **Themes** (`THEMES`, `THEME_ORDER`) — pure data: bg gradient, palette, sprite shape, ambient style.
 - **Clip-art** (`_clip_*`) — sprites drawn from pygame primitives at any size. Intentional: no asset files, scales to 4K, no font/emoji dependency.
 - **Sound synth** (`_make_piano`, `_make_swoosh`, `_make_bird`, ...) — every fallback sound is generated from numpy arrays at startup via `_to_sound` (1.5 ms fade-in, 10 ms fade-out to mask truncated synth tails). Recorded samples in `assets/sounds/{animals,instruments,counts}/<basename>.{ogg,wav}` override the synth fallbacks at load time (see `_load_samples_by_basename`).
-- **Key cycles** (`_KEY_CYCLES_TABLE`) — animal/instrument keys are bound by their **Danish first letter** (B → ?, F → fugl/fløjte/frø/får, G → guitar/gris, K → kat/ko/klaver, etc.). Keys with multiple items round-robin through them on each press. `_play_for_keydown` advances the per-key counter and returns the matching `clip_idx` so `burst` shows the paired sprite.
+- **Key cycles** (`_KEY_CYCLES_TABLE`) — animal/instrument keys are bound by their **Danish first letter** (F → fugl/fløjte/frø/får, G → guitar/gris, K → kat/ko/klaver, etc.). Keys with multiple items round-robin through them on each press. `_play_for_keydown` advances the per-key counter and returns the matching `clip_idx` so `burst` shows the paired sprite.
 - **Rendering primitives** — `Particle`, `FloatingSprite`.
-- **`Smashbox`** (~1000 lines) — init, main loop, input, three game modes.
+- **`Smashbox`** (~1500 lines) — init, main loop, input, three game modes.
 
 Three game modes cycled via the supervisor panel's `g` key, tracked in `self.game_state`:
 
@@ -45,7 +45,7 @@ Three game modes cycled via the supervisor panel's `g` key, tracked in `self.gam
 GAME_STATES = ("smash", "whack-a-mole", "counting")
 ```
 
-In `whack-a-mole` / `counting`, only the correct next key is reactive — wrong keys / mouse / touch trigger a gentle shake + soft two-tone "nope" (`_trigger_nope`, debounced 0.30 s). `whack-a-mole` picks a random A-Z or 0-9 target each round; `counting` walks the Danish 1..9 sequence (no zero in the count) and shows a bottom-row 1..9 strip that fills gray→green as each digit is hit (`_draw_count_row`). On hitting 9 the row reads all-green and a bigger fanfare (`_trigger_count_fanfare`: ring of 8 bursts around centre + 24 scattered bursts + opening chime/boom/pop chord + full pentatonic up-and-down piano run, spread across `COUNT_FANFARE_SECS` ≈ 4 s) plays. After the fanfare the target becomes **"0"** — the dedicated reset key — and the toddler has to press 0 to start a new row. `_count_pos = 10` is the "row complete, awaiting 0" sentinel; there's no auto-reset. 0 is not part of the count sequence, so pressing it during 1..9 progress gets the same nope as any other wrong key. Post-hit target picking is **eager** in `_handle_game_keypress` (not lazy in `_tick_target`) — toddler mashes used to advance 1→4 because the OLD target stayed matchable in the ~16 ms gap between `_target_next_at` expiring and the next frame; eager pick closes that race. Mode-specific branching lives inline in the update/draw/input methods (search `self.game_state == "..."`) rather than in subclasses.
+In `whack-a-mole` / `counting`, only the correct next key is reactive — wrong keys / mouse / touch trigger a gentle shake + soft two-tone "nope" (`_trigger_nope`, debounced 0.30 s). `whack-a-mole` picks a random A-Z or 0-9 target each round; `counting` walks the Danish 1..9 sequence (no zero in the count) and shows a bottom-row 1..9 strip that fills gray→green as each digit is hit (`_draw_count_row`). On hitting 9 the row reads all-green and a bigger fanfare (`_trigger_count_fanfare`: ring of 8 bursts around centre + 24 scattered bursts + opening chime/boom/pop chord + diatonic up-and-down piano run, spread across `COUNT_FANFARE_SECS` ≈ 4 s) plays. After the fanfare the target becomes **"0"** — the dedicated reset key — and the toddler has to press 0 to start a new row. `_count_pos = 10` is the "row complete, awaiting 0" sentinel; there's no auto-reset. 0 is not part of the count sequence, so pressing it during 1..9 progress gets the same nope as any other wrong key. Post-hit target picking is **eager** in `_handle_game_keypress` (not lazy in `_tick_target`) — toddler mashes used to advance 1→4 because the OLD target stayed matchable in the ~16 ms gap between `_target_next_at` expiring and the next frame; eager pick closes that race. Mode-specific branching lives inline in the update/draw/input methods (search `self.game_state == "..."`) rather than in subclasses.
 
 ### GPU pipeline
 

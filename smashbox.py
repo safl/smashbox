@@ -979,17 +979,13 @@ CLIP_PERCUSSION = 26
 # ---------------------------------------------------------------------------
 
 SAMPLE_RATE = 44100  # pygame's default — keeps numpy synthesis and mixer in sync
-# Pentatonic scale across ~2.5 octaves. Pentatonic is forgiving — any
-# combination of these notes sounds consonant, so toddler key-mashing
-# always lands somewhere musical.
 # Diatonic C major across 2 octaves. Indexed so digits 0..9 map to the
-# first 10 notes (C D E F G A B C D E) — sufficient for tune mode and
-# still totally consonant with toddler letter-mashing.
+# first 10 notes (C D E F G A B C D E), and stays consonant with
+# toddler letter-mashing.
 DIATONIC = [
     261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88,  # C4..B4
     523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77,  # C5..B5
 ]
-PENTATONIC = DIATONIC  # legacy name, kept for any external references
 
 
 def _to_sound(samples):
@@ -1937,7 +1933,6 @@ class Smashbox:
         self._banner_size = (0, 0)
 
         self.smashed = 0
-        self.session_start = time.monotonic()
 
         # Whack-a-mole target pool: built once after pygame.init() so the
         # K_a/K_0 constants are resolved. _pick_target used to rebuild
@@ -1976,7 +1971,7 @@ class Smashbox:
         self._key_cycle_pos: "dict[int, int]" = {}
         if self.audio_ok:
             print("[init] building sound bank…", flush=True)
-            self.snd_piano = [_make_piano(f) for f in PENTATONIC]
+            self.snd_piano = [_make_piano(f) for f in DIATONIC]
             self.snd_special = {
                 "boom":     _make_boom(),
                 "chime":    _make_chime(),
@@ -2438,7 +2433,6 @@ class Smashbox:
             self.toggle_fullscreen()
         elif event.key == pygame.K_r:
             self.smashed = 0
-            self.session_start = time.monotonic()
         elif event.key == pygame.K_g:
             self.toggle_game_mode()
 
@@ -2500,8 +2494,6 @@ class Smashbox:
             return (event.unicode or "").upper() == self.target[1]
         if kind == "digit":
             return (event.unicode or "") == self.target[1]
-        if kind == "clipart":
-            return event.key == self.target[2]
         return False
 
     def _handle_game_keypress(self, event):
@@ -2520,9 +2512,7 @@ class Smashbox:
         now = time.monotonic()
         cx, cy = self.size[0] / 2, self.size[1] / 2
         # Triple-burst celebration around the target.
-        char_for_burst = (self.target[1]
-                          if self.target[0] in ("letter", "digit")
-                          else None)
+        char_for_burst = self.target[1]
         for dx, dy in ((-1, 0), (1, 0), (0, -1)):
             self.burst(cx + dx * self.size[0] * 0.08,
                        cy + dy * self.size[1] * 0.08,
@@ -2613,8 +2603,8 @@ class Smashbox:
         if chime is not None:
             for t_off in (0.90, 1.80, 2.70, 3.50):
                 self._count_fanfare_sounds.append((now + t_off, chime))
-        # Pentatonic up then back down for the rising-then-settling
-        # cheer. 13 notes across ~3.6 s.
+        # Diatonic scale up then back down for the rising-then-settling
+        # cheer, spread across ~3.6 s.
         if self.snd_piano:
             n = len(self.snd_piano)
             seq = list(range(n)) + list(range(n - 2, -1, -1))
@@ -2802,34 +2792,19 @@ class Smashbox:
             remaining = self._target_shake_until - now
             amp = (remaining / 0.30) * (self.size[0] * 0.02)
             cx += int(amp * math.sin(now * 60.0))
-        kind = self.target[0]
-        if kind in ("letter", "digit"):
-            self._ensure_target_text(self.target[1])
-            tex = self._target_text_tex
-            w, h = self._target_text_size
-            if tex is None:
-                return
-            dw, dh = int(w * pulse), int(h * pulse)
-            # Drop shadow, then bright character on top.
-            tex.alpha = 110
-            tex.draw(dstrect=(
-                cx - dw // 2 + max(3, dw // 60),
-                cy - dh // 2 + max(3, dh // 60), dw, dh))
-            tex.alpha = 255
-            tex.draw(dstrect=(cx - dw // 2, cy - dh // 2, dw, dh))
+        self._ensure_target_text(self.target[1])
+        tex = self._target_text_tex
+        w, h = self._target_text_size
+        if tex is None:
             return
-        if kind == "clipart":
-            clip_idx, _key, angle = self.target[1], self.target[2], self.target[3]
-            tex, base_w, base_h = self.clip_textures[clip_idx]
-            # Scale up to roughly the same visual size as a letter target.
-            target_h = int(self.size[1] * 0.40 * pulse)
-            scale = target_h / max(1, base_h)
-            dw = int(base_w * scale)
-            dh = int(base_h * scale)
-            tex.alpha = 255
-            tex.draw(
-                dstrect=(cx - dw // 2, cy - dh // 2, dw, dh),
-                angle=angle)
+        dw, dh = int(w * pulse), int(h * pulse)
+        # Drop shadow, then bright character on top.
+        tex.alpha = 110
+        tex.draw(dstrect=(
+            cx - dw // 2 + max(3, dw // 60),
+            cy - dh // 2 + max(3, dh // 60), dw, dh))
+        tex.alpha = 255
+        tex.draw(dstrect=(cx - dw // 2, cy - dh // 2, dw, dh))
 
     # Counting-row palette: dim gray for "not yet hit", bright lime
     # for "hit". Picked for clear contrast at toddler-eye distance.
