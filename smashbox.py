@@ -23,7 +23,7 @@ from __future__ import annotations
 # release workflow also sed-overrides this line with the pushed tag
 # at build time, so tagged images always report the tag — but for
 # `pip install`-ish use the literal here is the source of truth.
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 import sys
 
