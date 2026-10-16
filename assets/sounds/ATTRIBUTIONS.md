@@ -34,17 +34,17 @@ Each entry lists:
   (`-ss 0 -t 3.0 -c:a libvorbis -q:a 5`). Original was 62.6 s of continuous
   garden birdsong.
 
-### `animals/cat.wav`
+### `animals/cat.ogg`
 
 - **Source:** https://opengameart.org/content/cat-purr-meow
 - **Author:** OpenGameArt user (per the upload page; the bundle ships
   under CC0).
 - **License:** CC0 1.0 (public-domain dedication; attribution not required).
-- **Modifications:** Renamed from `cat_mewpurr.wav` to `cat.wav` and
-  resampled to 48 kHz mono PCM (the kiosk's Pi 4 HDMI mixer ends up at
-  48 kHz; pre-resampling avoids any SDL_mixer on-load conversion
-  artefacts that made the previous 44.1 kHz `cat_softmew.wav` sound
-  thin / sped-up).
+- **Modifications:** Renamed from `cat_mewpurr.wav` to `cat.ogg`,
+  resampled to 48 kHz mono and encoded as Ogg Vorbis (the kiosk's Pi 4
+  HDMI mixer ends up at 48 kHz; pre-resampling avoids any SDL_mixer
+  on-load conversion artefacts that made the previous 44.1 kHz
+  `cat_softmew.wav` sound thin / sped-up).
 
 ### `animals/cow.ogg`
 

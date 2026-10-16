@@ -1,4 +1,5 @@
 VENV     ?= .venv
+PY       ?= python3
 PYTHON   ?= $(VENV)/bin/python
 PIP      ?= $(VENV)/bin/pip
 APP      ?= smashbox.py
@@ -12,15 +13,17 @@ VERSION   := $(shell awk -F'"' '/^__version__/ {print $$2; exit}' $(APP) 2>/dev/
 
 .DEFAULT_GOAL := help
 
-.PHONY: help venv run run-fullscreen media-deps image clean clean-image distclean
+.PHONY: help venv run run-fullscreen lint test media-deps image clean clean-image distclean
 
 help:
 	@echo "Smashbox v$(VERSION) — a toddler keyboard smash toy"
 	@echo
 	@echo "Dev:"
-	@echo "  make venv             Create $(VENV) and install pygame + numpy"
+	@echo "  make venv             Create $(VENV) with pygame, numpy, ruff, pytest"
 	@echo "  make run              Run the app locally (windowed — easy to see in WSLg)"
 	@echo "  make run-fullscreen   Same, but fullscreen"
+	@echo "  make lint             Run ruff over the Python sources"
+	@echo "  make test             Run the test suite (headless)"
 	@echo
 	@echo "Image (cijoe-driven; needs passwordless sudo + qemu-user-static):"
 	@echo "  make media-deps       pipx install cijoe (one-time)"
@@ -33,9 +36,9 @@ help:
 	@echo "  make distclean        Both of the above"
 
 $(VENV):
-	python3 -m venv $(VENV)
+	$(PY) -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install pygame numpy
+	$(PIP) install pygame numpy ruff pytest
 
 venv: $(VENV)
 
@@ -44,6 +47,12 @@ run: venv
 
 run-fullscreen: venv
 	$(PYTHON) $(APP)
+
+lint: venv
+	$(VENV)/bin/ruff check $(APP) scripts tests
+
+test: venv
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(PYTHON) -m pytest
 
 # ---------- Image build (cijoe) -----------------------------------------
 
@@ -75,7 +84,7 @@ image:
 	@echo "=================================================================="
 
 clean:
-	rm -rf $(VENV)
+	rm -rf $(VENV) .pytest_cache .ruff_cache
 	find . -name __pycache__ -type d -prune -exec rm -rf {} +
 
 clean-image:

@@ -12,9 +12,11 @@ A fullscreen pygame "keyboard smash" toy for toddlers, plus a [cijoe](https://gi
 ## Commands
 
 ```
-make venv             # create .venv with pygame + numpy
+make venv             # create .venv with pygame, numpy, ruff, pytest (PY=python3.13 if the host python has no pygame wheel)
 make run              # windowed (SMASHBOX_WINDOWED=1) — preferred under WSLg
 make run-fullscreen   # fullscreen
+make lint             # ruff (config in pyproject.toml)
+make test             # pytest under SDL dummy drivers
 make media-deps       # pipx install cijoe (one-time)
 make image            # build via cijoe → ~/system_imaging/disk/smashbox-rpi-arm64.img.gz
 make clean / clean-image / distclean
@@ -22,7 +24,7 @@ make clean / clean-image / distclean
 
 `make image` is `cijoe tasks/build.yaml --monitor -c configs/rpi.toml`. The variant is parametric (`VARIANT=rpi` by default) so a second target could be added later by dropping a new `configs/<name>.toml`.
 
-There is no test suite, linter, or formatter wired up. The app is exercised by running it.
+`tests/` only covers module-level data: clip-art indices, `_KEY_CYCLES_TABLE` against the files in `assets/sounds/` (every sample is bound, shipped, attributed, and has a synth fallback). `Smashbox()` itself cannot be constructed headless because `Renderer` needs a real render driver, so input handling and the game modes are exercised by running the app. `.github/workflows/ci.yml` runs `make lint test` on pushes and PRs.
 
 Runtime env vars the app honors: `SMASHBOX_WINDOWED`, `SMASHBOX_LOGICAL_HEIGHT` (defaults to 1080 — caps render res and GPU-scales above that), `SMASHBOX_AUDIO_DEVICE` (force a device name), `SMASHBOX_AUDIO_BUFFER` (default 256 samples), `SMASHBOX_SOUNDS_DIR` (sample root override). When no `DISPLAY`/`WAYLAND_DISPLAY` is present the app sets `SDL_VIDEODRIVER=kmsdrm`. On a Pi (detected via `/proc/device-tree/model`) it also sets `SDL_AUDIODRIVER=alsa` so SDL skips the pulse/pipewire probes.
 
