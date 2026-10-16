@@ -10,6 +10,7 @@ points at the wrong builder would otherwise only show up on the kiosk.
 """
 
 import os
+import re
 from pathlib import Path
 
 import pygame
@@ -123,3 +124,9 @@ def test_boot_config_drops_hdmi_audio():
     # Anything after the overlay is in its parameter scope; its audio
     # parameter would re-enable HDMI audio.
     assert not [ln for ln in lines[kms[0]:] if ln.startswith("dtparam=")]
+
+
+def test_jack_level_is_capped():
+    start = Path(__file__).resolve().parent.parent / "rootfs/opt/smashbox/start.sh"
+    levels = re.findall(r"sset PCM (-?\d+(?:\.\d+)?)dB", start.read_text(encoding="utf-8"))
+    assert levels and all(float(db) < 0 for db in levels)
