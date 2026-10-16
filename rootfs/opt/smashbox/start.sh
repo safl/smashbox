@@ -1,4 +1,8 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # X session entrypoint. Plain POSIX redirection (no process substitution
 # — dash, which is /bin/sh on Debian, doesn't support `> >(tee ...)`).
 # The .bash_profile reads the log and dumps it to tty1 after the app

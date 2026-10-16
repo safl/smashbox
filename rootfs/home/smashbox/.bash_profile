@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Auto-launch smashbox when this user lands on tty1 via getty
 # autologin. Other ttys / SSH drop straight to a shell so debugging is
 # easy.

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """
 Customise Raspberry Pi OS Lite arm64 into a smashbox kiosk image
 ====================================================================

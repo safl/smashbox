@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Smashbox — a fullscreen, toddler-safe keyboard smash toy.
 
 Inspired by the toy at tinyfingers.net. Press any key, click

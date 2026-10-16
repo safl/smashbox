@@ -1,4 +1,8 @@
 #!/bin/sh
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 # Set the wifi regulatory country and unblock the radio. Required on
 # RPi OS first boot — until a country is set, wifi is soft-blocked by
 # rfkill and won't show up in nmtui.

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+
+SPDX-License-Identifier: BSD-3-Clause
+-->
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.

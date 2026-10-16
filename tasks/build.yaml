@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 doc: |
   Build the smashbox kiosk image (Raspberry Pi 4 / arm64)
   ==========================================================

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 VENV     ?= .venv
 PY       ?= python3
 PYTHON   ?= $(VENV)/bin/python

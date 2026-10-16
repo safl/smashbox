@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+
+SPDX-License-Identifier: BSD-3-Clause
+-->
+
 # Sound asset attributions
 
 This file records the source, author, license, and any modifications for every

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: Simon A. F. Lund <os@safl.dk>
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 [Unit]
 # Pin cpufreq to `performance` so the Pi 4's first-press jitter
 # (ondemand governor needs ~10-50ms to ramp up after idle) doesn't
