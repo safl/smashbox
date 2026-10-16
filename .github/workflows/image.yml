@@ -2,30 +2,48 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-name: release
+name: image
 
-# Build the Raspberry Pi kiosk image and publish it as a GitHub
-# Release. Tag-driven: pushing a `v*` tag (e.g. `v1.0.0`) triggers
-# the full pipeline and attaches the `.img.gz` + `.sha256` to the
-# release. `workflow_dispatch` runs the same build but uploads to
-# the workflow's artifact store instead of cutting a release — use
-# it for smoke-testing the pipeline before tagging.
+# Build the Raspberry Pi kiosk image so it can be flashed and tested.
+# Pushes build it when they touch something that ends up in the image;
+# docs and tests alone do not. It can also be run by hand
+# (gh workflow run image.yml --ref <branch>). The .img.gz and .sha256
+# are kept as a workflow artifact for 7 days.
+#
+# Pushing a v* tag builds the image and publishes it as a GitHub
+# Release. GitHub does not apply path filters to tag pushes, so a tag
+# always builds.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - smashbox.py
+      - assets/**
+      - rootfs/**
+      - scripts/**
+      - tasks/**
+      - configs/**
+      - Makefile
+      - .github/workflows/image.yml
   workflow_dispatch:
 
+# A newer push to the same branch makes a running build moot. Tag builds
+# are never cancelled.
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions:
+  contents: read
+
 jobs:
-  build-and-release:
+  build:
     # Pinned: Ubuntu 26.04 has no qemu-user-static package, which the
     # dependency step below installs.
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    permissions:
-      contents: write  # needed by softprops/action-gh-release
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,9 +95,8 @@ jobs:
           IMG_DIR="$HOME/system_imaging/disk"
           IMG_GZ="$IMG_DIR/smashbox-rpi-arm64.img.gz"
           IMG_SHA="$IMG_DIR/smashbox-rpi-arm64.img.gz.sha256"
-          # Fail loudly if the build silently skipped the output —
-          # softprops/action-gh-release has fail_on_unmatched_files
-          # but we want a clearer error before we get there.
+          # Fail loudly if the build silently skipped the output,
+          # rather than uploading an empty artifact.
           test -f "$IMG_GZ"  || { echo "Missing $IMG_GZ"; exit 1; }
           test -f "$IMG_SHA" || { echo "Missing $IMG_SHA"; exit 1; }
           ls -lh "$IMG_GZ" "$IMG_SHA"
@@ -88,18 +105,7 @@ jobs:
             echo "img_sha=$IMG_SHA"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Publish release (tag pushes)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ${{ steps.locate.outputs.img_gz }}
-            ${{ steps.locate.outputs.img_sha }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-
-      - name: Upload artifact (manual runs)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: smashbox-rpi-arm64
@@ -107,3 +113,27 @@ jobs:
             ${{ steps.locate.outputs.img_gz }}
             ${{ steps.locate.outputs.img_sha }}
           retention-days: 7
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write  # needed by softprops/action-gh-release
+    steps:
+      - name: Download image
+        uses: actions/download-artifact@v4
+        with:
+          name: smashbox-rpi-arm64
+          path: image
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            image/smashbox-rpi-arm64.img.gz
+            image/smashbox-rpi-arm64.img.gz.sha256
+          generate_release_notes: true
+          fail_on_unmatched_files: true

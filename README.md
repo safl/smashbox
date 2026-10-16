@@ -51,8 +51,9 @@ make image
 
 The image lands in `~/system_imaging/disk/smashbox-rpi-arm64.img.gz`. The
 rescue user `pi` gets the password set in `configs/rpi.toml`; change it
-before building an image you hand to anyone. Tagged releases on GitHub carry
-a prebuilt image.
+before building an image you hand to anyone. GitHub also builds the image on
+every push that changes what goes into it, keeping it as a workflow artifact
+for a week, and tagged releases carry a prebuilt image.
 
 ## Development
 

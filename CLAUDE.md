@@ -103,11 +103,12 @@ Pipeline steps (all in `rpi_image_customize.py`):
 
 If you touch tty1 ownership, plymouth, the cmdline, or `userconfig.service`/`firstrun.sh`, re-verify the single-owner-of-tty1 invariant — getting it wrong looks like a black screen on boot.
 
-### Releases (GitHub Actions)
+### Images and releases (GitHub Actions)
 
-`.github/workflows/release.yml` runs the same `make image` pipeline on `ubuntu-latest`. Two triggers:
+`.github/workflows/image.yml` runs the same `make image` pipeline. Its `build` job uploads `.img.gz` + `.sha256` as a workflow artifact (7-day retention) for flashing and testing; `gh run download <run-id>` fetches it. Triggers:
 
-- **Tag push** (`git push origin v1.2.3`) — builds and publishes `.img.gz` + `.sha256` as assets on a GitHub Release. `contents: write` permission required.
-- **`workflow_dispatch`** — same build, but uploads to the workflow artifact store (7-day retention) instead of cutting a release. Use it to smoke-test the pipeline before tagging.
+- **Branch push** touching something that ends up in the image (`smashbox.py`, `assets/`, `rootfs/`, `scripts/`, `tasks/`, `configs/`, `Makefile`, the workflow itself). Docs and tests alone do not build. A newer push to the same branch cancels a running build.
+- **`workflow_dispatch`** (`gh workflow run image.yml --ref <branch>`) — builds on demand.
+- **Tag push** (`git push origin v1.2.3`) — always builds, since GitHub does not apply path filters to tags, stamps the tag into `__version__`, and then the `release` job publishes the artifact as a GitHub Release. Only that job has `contents: write`.
 
 The runner needs to free ~6 GB before the build: ~700 MB compressed image + 5 GB raw + downloaded RPi OS Lite source. The workflow prunes preinstalled toolcache (dotnet, android, ghc, codeql) up front. The job is pinned to `ubuntu-24.04` because 26.04 dropped `qemu-user-static`; it and `binfmt-support` are installed inline; the chroot step then runs aarch64 binaries on the x86_64 runner.
