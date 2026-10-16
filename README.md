@@ -33,7 +33,8 @@ fullscreen (`f`) and game mode (`g`), resets the counter (`r`), and quits
 ## Building the Raspberry Pi image
 
 The build runs on Linux and needs `qemu-user-static binfmt-support sudo
-parted losetup gzip xz-utils curl openssl e2fsprogs`, plus cijoe:
+parted losetup gzip xz-utils curl openssl e2fsprogs`, plus cijoe. On Ubuntu
+26.04 and later, install `qemu-user-binfmt` instead of `qemu-user-static`:
 
 ```
 make media-deps

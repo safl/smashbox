@@ -69,7 +69,7 @@ Exit is gated behind either holding the top-left `CORNER_SIZE` corner for `CORNE
 
 ## Image build pipeline
 
-Linux-only build host. Needs: `qemu-user-static binfmt-support sudo parted losetup gzip xz-utils curl openssl e2fsprogs`, plus `cijoe` via `make media-deps`. Run as a normal user; the cijoe script `sudo`s for the loop-mount + chroot parts.
+Linux-only build host. Needs: `qemu-user-static binfmt-support sudo parted losetup gzip xz-utils curl openssl e2fsprogs`, plus `cijoe` via `make media-deps`. On Ubuntu 26.04 and later `qemu-user-static` is gone; install `qemu-user-binfmt`, whose `qemu-aarch64` is static and accepted by the script. Without systemd (WSL) its binfmt entry is not registered automatically. Run as a normal user; the cijoe script `sudo`s for the loop-mount + chroot parts.
 
 Layout:
 
@@ -108,4 +108,4 @@ If you touch tty1 ownership, plymouth, the cmdline, or `userconfig.service`/`fir
 - **Tag push** (`git push origin v1.2.3`) — builds and publishes `.img.gz` + `.sha256` as assets on a GitHub Release. `contents: write` permission required.
 - **`workflow_dispatch`** — same build, but uploads to the workflow artifact store (7-day retention) instead of cutting a release. Use it to smoke-test the pipeline before tagging.
 
-The runner needs to free ~6 GB before the build: ~700 MB compressed image + 5 GB raw + downloaded RPi OS Lite source. The workflow prunes preinstalled toolcache (dotnet, android, ghc, codeql) up front. `qemu-user-static` + `binfmt-support` are installed inline; the chroot step then runs aarch64 binaries on the x86_64 runner.
+The runner needs to free ~6 GB before the build: ~700 MB compressed image + 5 GB raw + downloaded RPi OS Lite source. The workflow prunes preinstalled toolcache (dotnet, android, ghc, codeql) up front. The job is pinned to `ubuntu-24.04` because 26.04 dropped `qemu-user-static`; it and `binfmt-support` are installed inline; the chroot step then runs aarch64 binaries on the x86_64 runner.

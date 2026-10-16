@@ -12,6 +12,7 @@
 # Build host requirements (Debian/Ubuntu package names):
 #   qemu-user-static binfmt-support sudo parted losetup gzip xz-utils
 #   curl openssl e2fsprogs
+#   (Ubuntu 26.04+: qemu-user-binfmt instead of qemu-user-static)
 #
 # Usage:
 #   make image

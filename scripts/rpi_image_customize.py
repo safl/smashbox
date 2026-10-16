@@ -30,14 +30,15 @@ Mirrors what ``image/build.sh`` used to do, just driven from cijoe:
      * remove ``userconf.txt`` and ``firstrun.sh`` (the wizard).
 8. Generate the ``pi`` user password hash on the host via
    ``openssl passwd -6`` and hand it to the chroot via ``/tmp/pi-creds``.
-9. Drop ``qemu-aarch64-static`` into the chroot, then ``chroot`` in
+9. Drop a static ``qemu-aarch64`` into the chroot, then ``chroot`` in
    and run the install script: apt packages, ``smashbox`` kiosk
    user, ``pi`` rescue user, service enables, image slimming.
 10. Tear down mounts, detach the loop device, gzip the raw image,
     write a sha256 manifest.
 
 Build-host requirements:
-    amd64 Linux with ``binfmt_misc`` + ``qemu-user-static``,
+    amd64 Linux with ``binfmt_misc`` + a static ``qemu-aarch64``
+    (``qemu-user-static``, or ``qemu-user-binfmt`` on Ubuntu 26.04+),
     passwordless sudo, ``losetup parted e2fsprogs xz-utils gzip
     openssl curl``.
 
@@ -369,19 +370,17 @@ def _stage_and_chroot(
     if rc != 0:
         return rc
 
-    # qemu-aarch64-static + binfmt lets execve arm64 binaries on amd64
+    # A static qemu-aarch64 + binfmt lets execve arm64 binaries on amd64
     # transparently inside the chroot.
-    qemu_static = (
-        shutil.which("qemu-aarch64-static")
-        or "/usr/bin/qemu-aarch64-static"
-    )
-    if not Path(qemu_static).exists():
+    qemu_static = _find_qemu_aarch64()
+    if qemu_static is None:
         log.error(
-            "qemu-aarch64-static not found. "
-            "sudo apt install qemu-user-static binfmt-support."
+            "static qemu-aarch64 not found. sudo apt install "
+            "qemu-user-static binfmt-support (Ubuntu 26.04+: qemu-user-binfmt)."
         )
         return errno.ENOENT
-    if _run_sudo(["cp", qemu_static, str(mnt / "usr/bin/")]) != 0:
+    qemu_in_image = mnt / "usr/bin" / Path(qemu_static).name
+    if _run_sudo(["cp", qemu_static, str(qemu_in_image)]) != 0:
         return errno.EIO
 
     # Save the image's resolv.conf, swap in the host's so apt can fetch.
@@ -427,7 +426,7 @@ def _stage_and_chroot(
     _run_sudo(["rm", "-f", str(resolv)])
     if saved_resolv:
         _run_sudo(["mv", str(resolv_bak), str(resolv)])
-    _run_sudo(["rm", "-f", str(mnt / "usr/bin/qemu-aarch64-static")])
+    _run_sudo(["rm", "-f", str(qemu_in_image)])
 
     # Zero unused space so the final gzip compresses well.
     log.info("Zeroing free space (helps gzip)")
@@ -445,7 +444,7 @@ def _render_install_script() -> str:
     return textwrap.dedent(f"""
         #!/bin/bash
         # smashbox kiosk customisation, runs inside the arm64 chroot
-        # transparently via qemu-aarch64-static + binfmt.
+        # transparently via a static qemu-aarch64 + binfmt.
         set -euo pipefail
         export DEBIAN_FRONTEND=noninteractive
         export LC_ALL=C
@@ -600,6 +599,42 @@ def _run_shell(cmdline: str) -> int:
     the gzip-to-stdout-redirected-to-file pattern."""
     log.debug(f"sh -c '{cmdline}'")
     return subprocess.call(["sh", "-c", cmdline])
+
+
+def _find_qemu_aarch64() -> str | None:
+    """Path of a static qemu-aarch64 on the build host, or None.
+
+    Debian and Ubuntu up to 24.04 ship it as qemu-aarch64-static. From
+    Ubuntu 26.04 qemu-user is static itself and the binary is plain
+    qemu-aarch64, so that name is accepted only when it is a static
+    build: a dynamic one cannot run inside the arm64 chroot."""
+    path = shutil.which("qemu-aarch64-static")
+    if path:
+        return path
+    path = shutil.which("qemu-aarch64")
+    if path and _is_static_elf(Path(path)):
+        return path
+    return None
+
+
+def _is_static_elf(path: Path) -> bool:
+    """True when the ELF at `path` has no PT_INTERP program header,
+    i.e. it needs no dynamic loader."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return False
+    if data[:4] != b"\x7fELF" or data[4] != 2 or data[5] != 1:
+        return False  # only 64-bit little-endian hosts are supported
+    phoff = int.from_bytes(data[0x20:0x28], "little")
+    phentsize = int.from_bytes(data[0x36:0x38], "little")
+    phnum = int.from_bytes(data[0x38:0x3A], "little")
+    pt_interp = 3
+    for i in range(phnum):
+        off = phoff + i * phentsize
+        if int.from_bytes(data[off:off + 4], "little") == pt_interp:
+            return False
+    return True
 
 
 def _run_sudo(cmd: list[str]) -> int:
